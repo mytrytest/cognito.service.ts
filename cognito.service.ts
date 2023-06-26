@@ -3,8 +3,10 @@ import {
   CognitoUserPool, 
   CognitoUser, 
   AuthenticationDetails, 
+  CognitoRefreshToken,
   CognitoUserAttribute } from 'amazon-cognito-identity-js';
 import { environment } from 'src/environments/environment';
+
 
 const poolData = {
   UserPoolId: environment.cognitoUserPoolId,
@@ -78,6 +80,92 @@ export class CognitoService {
         } else {
           resolve(result?.user);
         }
+      });
+    });
+  }
+
+  //generate new access token and id token from refreshtoken
+  refreshToken(userId: any, refreshToken: any): Promise<any> {
+    const userData = {
+      Username: userId,
+      Pool: userPool
+    };
+  
+    const cognitoUser = new CognitoUser(userData);
+    const refreshToken1 = new CognitoRefreshToken({ RefreshToken: refreshToken });
+  
+    return new Promise((resolve, reject) => {
+      cognitoUser.refreshSession(refreshToken1, (error, session) => {
+        if (error) {
+          console.log('Token refresh failed:', error);
+          reject(error);
+        } else {
+          console.log(session);
+          // Use the new access token as needed
+          localStorage.setItem("accessToken", session.getAccessToken().getJwtToken());
+          localStorage.setItem("refreshToken", session.getRefreshToken().getToken());
+          localStorage.setItem("idToken", session.getIdToken().getJwtToken());
+          resolve(session);
+        }
+      });
+    });
+
+
+  }
+
+
+  //Sign out functionality 
+  signOut(): void {
+    let cognitoUser = userPool.getCurrentUser();
+    if (cognitoUser != null) {
+      cognitoUser.signOut();
+    }
+
+    localStorage.clear();
+  }
+
+
+  //Forgot password - sent email by cognito 
+  forgotPassword(username: string): Promise<any> {
+    
+    const userData = {
+      Username: username,
+      Pool: userPool
+    };
+    const cognitoUser = new CognitoUser(userData);
+
+    return new Promise((resolve, reject) => {
+      cognitoUser.forgotPassword({
+        onSuccess: function (result) { 
+          //console.log(result); 
+          resolve(result); } ,
+        onFailure: function (err)  { 
+          //console.log(err); 
+          reject(err); } 
+        
+      });
+    });
+  }
+
+
+   //Confirm password cognito methold 
+   confirmPassword(code: string, newPassword: string, userId: string): Promise<any> {
+    
+    const userData = {
+      Username: userId,
+      Pool: userPool
+    };
+    const cognitoUser = new CognitoUser(userData);
+
+    return new Promise((resolve, reject) => {
+      cognitoUser.confirmPassword(code, newPassword, {
+        onSuccess: function (result) { 
+          //console.log(result); 
+          resolve(result); } ,
+        onFailure: function (err)  { 
+          //console.log(err); 
+          reject(err); } 
+        
       });
     });
   }
